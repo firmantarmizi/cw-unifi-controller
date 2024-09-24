@@ -1,20 +1,32 @@
-# Use the official Unifi Controller image as base
-FROM jacobalberty/unifi:latest
+FROM jacobalberty/unifi
 
-# Set environment variable for timezone
+# Set timezone
 ENV TZ='Asia/Jakarta'
 
 # Create necessary directories
 RUN mkdir -p /unifi/data /unifi/log
 
-# Set the working directory
-WORKDIR /unifi
+# Set user to root temporarily to ensure we have permissions to modify the image
+USER root
 
-# Expose necessary ports
+# Install any additional packages if needed (uncomment if required)
+# RUN apt-get update && apt-get install -y <package-name>
+
+# Create a startup script
+RUN echo '#!/bin/bash\n\
+mkdir -p /unifi/data /unifi/log\n\
+chown -R unifi:unifi /unifi\n\
+exec gosu unifi /usr/local/bin/docker-entrypoint.sh "$@"' > /startup.sh && \
+    chmod +x /startup.sh
+
+# Expose ports
 EXPOSE 8080 8443 3478/udp
 
-# Set user to run the container
-USER unifi
+# Set volumes
+VOLUME ["/unifi"]
 
-# Command to run the Unifi Controller
-CMD ["java", "-Xmx1024M", "-jar", "/usr/lib/unifi/lib/ace.jar", "start"]
+# Use the startup script as the entrypoint
+ENTRYPOINT ["/startup.sh"]
+
+# Set command
+CMD ["unifi"]
